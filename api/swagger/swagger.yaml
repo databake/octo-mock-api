@@ -1,0 +1,358 @@
+swagger: "2.0"
+info:
+  version: "0.0.1"
+  title: Octo Mock API
+# during dev, should point to your local machine
+host: localhost:10010
+# basePath prefixes all resource paths 
+basePath: /
+# 
+schemes:
+  # tip: remove http to make production-grade
+  - http
+  - https
+# format of bodies a client can send (Content-Type)
+consumes:
+  - application/json
+# format of the responses to the client (Accepts)
+produces:
+  - application/json
+parameters:
+  DateParam:
+    name: x-octo-date
+    in: header
+    description: "the request date in the format EEE, dd MMM yyyy HH:mm:ss zzz (US local). For example x-octo-date : Tue, 18 Feb 2014 14:37:53 CET. This value must be the same provided in the Authorization payload string. It is mandatory for each authorizayed requests because the server use it to check the request signature."
+    required: true
+    type: string
+  AcceptParam:
+    name: Accept
+    in: header
+    description: "this HTTP Header is used to specified the format of the response. The allowed formats are application/json : for a JSON output or application/xml : for a XML output"
+    required: true
+    type: string
+  AuthorizationParam:
+    name: Authorization
+    in: header
+    description: "The value of this header must be provided for authenticated requests and /functions/login (/functions/register, /function/recoverpassword do not need it)."
+    required: true
+    type: string
+  "LanguageParam":
+    name: Accept-Language
+    in: header
+    description: "This HTTP Header contains the display language. This is only relevant for address information and it is dependent on the geolocation provided if the language requested can be honoured. This is not to be confused with the Default Language of the User."
+    required: false
+    type: string
+paths:
+  /login:
+    x-swagger-router-controller: login
+
+    post:
+      description: The operation is used to login the operator. The loginId and password are those supplied by Octo
+      # used as the method name of the controller
+      operationId: login
+      parameters:
+        - $ref: "#/parameters/DateParam"
+        - $ref: "#/parameters/AcceptParam"
+        - $ref: "#/parameters/AuthorizationParam"
+        - $ref: "#/parameters/LanguageParam"
+        - in: body
+          name: login
+          required: true
+          description: The body posted to this method
+          schema:
+            $ref: "#/definitions/login"
+      responses:
+        "200":
+          description: A User object
+          headers:
+            x-octo-request-id:
+              type: string
+              description: "Each server response contains this HTTP Header. The value of this Header can be use to isolate the associate session on the server log file (only for server debug purposes)"
+            x-octo-token:
+              type: string
+              description: "Each server response of an authenticated REST request contains this HTTP Header. The value of this Header must be use by the client to sign the next request. A single token can be use for a maximum of three consecutive requests."
+
+          schema:
+            $ref: "#/definitions/user"
+        "401":
+          description: "If the operator that perform the login is disabled or not authorized to login"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: ""
+                description: "Description of the message"
+        "404":
+          description: "If the username/password provided are not associated to an existing operator"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "LOGIN_ERR_1"
+        "400":
+          description: "If the client provides invalid value for input parameters"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "LOGIN_ERR_2"
+        "500":
+          description: "If an error occurs on the server (no detailed error needs to be provided to the client. If this error occurs, the client has to provide the x-octo-request-id to any support request)"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "SERVER_ERR_1"
+            
+  /installerChange:
+    x-swagger-router-controller: installerChange
+    
+    post:
+      description: "The operation is used to change the installer."
+      operationId: installerChange
+      parameters:
+        - $ref: "#/parameters/DateParam"
+        - $ref: "#/parameters/AcceptParam"
+        - $ref: "#/parameters/AuthorizationParam"
+        - $ref: "#/parameters/LanguageParam"
+        - in: body
+          name: params
+          required: true
+          description: The body posted to this method
+          schema:
+            $ref: "#/definitions/installerChangeRequest"
+      
+      responses:
+        "200":
+          headers:
+            x-octo-request-id:
+              type: string
+              description: "Each server response contains this HTTP Header. The value of this Header can be use to isolate the associate session on the server log file (only for server debug purposes)"
+            x-octo-token:
+              type: string
+              description: "Each server response of an authenticated REST request contains this HTTP Header. The value of this Header must be use by the client to sign the next request. A single token can be use for a maximum of three consecutive requests."
+          description: "If the operation is correctly executed the server will response with a custom BODY OUTPUT"
+        "401":
+          description: "Request not authorized : If the operator that perform the action is disabled or not authorized to change the password"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: ""
+                description: "(Empty body)"
+        "404":
+          description: "Data not found : if the params value provided is not associated to an existing function or the voucherId provided does not exists"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "INSTALLER_CHANGE_ERR_1"
+        "400":
+          description: "Input REST or REQUEST Parameters not correct : if the user provides invalid values for input parameters"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "INSTALLER_CHANGE_ERR_2"
+        "409":
+          description: "Operation not allowed : if the operator is not allowed to perform the operation"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "INSTALLER_CHANGE_ERR_3"
+        "500":
+          description: "Internal Server Error : if an error occurs on the server (no detailed error needs to be provided to the client. If this error occurs, the client has to provide the x-octo-request-id to any support request)"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "SERVER_ERR_1"
+                
+  /voucherTerminalAssociation:
+    x-swagger-router-controller: associate
+    
+    post:
+      description: "The operation is used to associate the voucherId with the device"
+      operationId: associate
+      parameters: 
+        - $ref: "#/parameters/DateParam"
+        - $ref: "#/parameters/AcceptParam"
+        - $ref: "#/parameters/AuthorizationParam"
+        - $ref: "#/parameters/LanguageParam"
+        - in: body
+          name: params
+          required: true
+          description: The body posted to this method
+          schema:
+            $ref: "#/definitions/associateRequest"
+
+      responses:
+        "200":
+          headers:
+            x-octo-request-id:
+              type: string
+              description: "Each server response contains this HTTP Header. The value of this Header can be use to isolate the associate session on the server log file (only for server debug purposes)"
+            x-octo-token:
+              type: string
+              description: "Each server response of an authenticated REST request contains this HTTP Header. The value of this Header must be use by the client to sign the next request. A single token can be use for a maximum of three consecutive requests."
+          description: "OK"
+        "401":
+          description: "Request not authorized : If the operator that perform the action is disabled or not authorized to change the password"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: ""
+                description: "(Empty body)"
+        "404":
+          description: "Data not found : if the params value provided is not associated to an existing function or the voucherId provided does not exists"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "VTA_ERR_1"
+        "400":
+          description: "Input REST or REQUEST Parameters not correct : if the user provides invalid values for input parameters"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "VTA_2"
+        "409":
+          description: "Operation not allowed : if the operator is not allowed to perform the operation"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "VTA_ERR_3"
+        "500":
+          description: "Internal Server Error : if an error occurs on the server (no detailed error needs to be provided to the client. If this error occurs, the client has to provide the x-octo-request-id to any support request)"
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+                default: "SERVER_ERR_1"
+
+  /swagger:
+    x-swagger-pipe: swagger_raw
+
+# complex objects have schema definitions
+definitions:
+  login:
+    type: object
+    required: 
+      - loginId
+      - password
+    properties:
+      loginId:
+        type: string
+        description: "The login id" 
+      password:
+        type: string
+        description: "The password"
+      deviceToken:
+        type: string
+        description: "The unique id associated with the push service provided by Apple or GCM"
+      devicePlatform:
+        type: integer
+        enum: [1, 2]
+        description: "An integer representing the device platform: 1 Apple, 2 Android"
+  user:
+    type: object
+    properties:
+      userId:
+        type: string
+        example: "007"
+      userName:
+        type: string
+        example: "James Bond"
+      userCode:
+        type: string
+        example: "code"
+      phoneNumber:
+        type: string
+        example: "017590 532804"
+      phoneNumber2:
+        type: string
+      phoneNumber3:
+        type: string
+      phoneNumber4:
+        type: string
+      phoneNumber5:
+        type: string
+      email:
+        type: string
+        example: "me@me.com"
+      defaultLanguage:
+        type: string
+        example: "en-GB"
+      address:
+        type: string
+        example: "Up our street"
+      city:
+        type: string
+        example: "Your Town"
+      zipCode:
+        type: string
+        example: "CV11 6FF"
+      country:
+        type: string
+        example: "UK"
+      streetNumber:
+        type: string
+        example: "18"
+  installerChangeRequest:
+    type: object
+    required:
+      - voucherId
+      - installerIdNew
+    properties:
+      voucherId:
+        type: string
+        description: "Change the installer for the specific voucher (type will be ignored)"
+      installerIdOld:
+        type: string
+        description: "Is the installer that have to be substituted"
+      installerIdNew:
+        type: string
+        description: "Is the new installer"
+      type:
+        type: string
+        description: "The type of request 1 = all voucher (opened and closed), 2 = all opened voucher, 3 = all opened and not associated voucher, 4 = only voucher in anomaly"
+        enum: [1, 2, 3, 4]
+      date:
+        type: integer
+        description: if not null will be moved only voucher (of the specific type) created after the date (in millis UTC/GMT)
+  associateRequest:
+    type: object
+    required:
+      - voucherId
+      - imei
+      - serial
+    properties:
+      voucherId:
+        type: string
+        description: "The specific voucher"
+      imei:
+        type: string
+        description: "The imei number related to the box sim"
+      serial:
+        type: string
+        description: "The box serial number"
+        
+
