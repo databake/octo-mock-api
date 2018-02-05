@@ -1,1 +1,1 @@
-# Skeleton project for Swagger
+# Octo API Mock app
